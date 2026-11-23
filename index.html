@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Showing Route Planner</title>
+  <meta name="description" content="Put a day of home showings in the order that fits every listing-agent window with the least driving. Works offline, runs on a phone.">
+  <meta name="theme-color" content="#cdb9a3">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/leaflet/leaflet.js"></script>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="app">
+    <header class="bar glass">
+      <img class="logo" src="icons/icon.svg" alt="" width="34" height="34">
+      <div class="title">
+        <h1>Showing Route Planner</h1>
+        <p>Fit every showing window, drive the least</p>
+      </div>
+      <button class="chip" id="installBtn" type="button" hidden>Install</button>
+      <span class="chip" id="netChip">Online</span>
+    </header>
+
+    <section class="summary glass" id="summary" aria-live="polite"></section>
+
+    <nav class="dock glass" id="tabs" aria-label="Sections">
+      <button type="button" data-tab="stops" class="on">Stops</button>
+      <button type="button" data-tab="map">Map</button>
+      <button type="button" data-tab="route">Route</button>
+      <button type="button" data-tab="share">Share</button>
+    </nav>
+
+    <main class="cols">
+      <div class="left">
+        <section class="panel glass on" data-panel="stops">
+          <h2>Start</h2>
+          <div class="card form">
+            <label>Start name<input id="startLabel" autocomplete="off" placeholder="Office or first pickup"></label>
+            <div class="row">
+              <label class="grow">Start point (lat, lng)<input id="startCoords" inputmode="decimal" autocomplete="off" placeholder="35.7796, -78.6382"></label>
+              <button type="button" class="btn ghost" id="pickStart">Pick on map</button>
+            </div>
+            <label>Leave at<input id="startTime" type="time"></label>
+          </div>
+
+          <h2 id="formTitle">Add a showing</h2>
+          <form class="card form" id="stopForm" novalidate>
+            <label>Address label<input id="fLabel" autocomplete="off" placeholder="418 Maple Ridge Dr" maxlength="80"></label>
+            <div class="row">
+              <label class="grow">Coordinates (lat, lng)<input id="fCoords" inputmode="decimal" autocomplete="off" placeholder="35.8101, -78.6120"></label>
+              <button type="button" class="btn ghost" id="pickPin">Drop a pin</button>
+            </div>
+            <div class="row">
+              <label class="grow">Window opens<input id="fOpen" type="time" value="13:00"></label>
+              <label class="grow">Window closes<input id="fClose" type="time" value="14:00"></label>
+            </div>
+            <div class="row">
+              <label class="grow">Minutes inside<input id="fDur" type="number" min="5" max="240" step="5" value="30" inputmode="numeric"></label>
+              <label class="check"><input id="fMust" type="checkbox"> Must-see</label>
+            </div>
+            <p class="err" id="formErr" role="alert"></p>
+            <div class="row">
+              <button class="btn primary" type="submit" id="saveStop">Add showing</button>
+              <button class="btn ghost" type="button" id="cancelEdit" hidden>Cancel</button>
+            </div>
+          </form>
+
+          <h2>Showings <span class="count" id="stopCount"></span></h2>
+          <ul class="stops" id="stopList"></ul>
+          <div class="row wrap">
+            <button class="btn ghost" type="button" id="loadSample">Load sample day</button>
+            <button class="btn ghost" type="button" id="clearAll">Clear all</button>
+          </div>
+
+          <details class="card settings" id="settings">
+            <summary>Travel time settings</summary>
+            <p class="hint">Default is an offline estimate: straight-line miles x road factor, driven at a flat speed. Change either number to match your market.</p>
+            <div class="row">
+              <label class="grow">Road factor<input id="sFactor" type="number" min="1" max="3" step="0.05" inputmode="decimal"></label>
+              <label class="grow">Average mph<input id="sMph" type="number" min="5" max="80" step="1" inputmode="numeric"></label>
+            </div>
+            <label class="check"><input id="sOsrm" type="checkbox"> Use my own OSRM server for real drive times</label>
+            <label>OSRM server address<input id="sOsrmUrl" type="url" autocomplete="off" placeholder="https://your-osrm-server.example"></label>
+            <p class="hint">Off by default. Stop coordinates are sent to the address you enter, nothing else is contacted. The server needs the <code>/table</code> service and must allow requests from this page.</p>
+          </details>
+        </section>
+
+        <section class="panel glass" data-panel="route">
+          <h2>Timeline</h2>
+          <div id="problems"></div>
+          <ol class="timeline" id="timeline"></ol>
+        </section>
+
+        <section class="panel glass" data-panel="share">
+          <h2>Buyer itinerary</h2>
+          <div class="card form">
+            <label>Prepared for<input id="buyer" autocomplete="off" placeholder="Buyer name (optional)" maxlength="60"></label>
+            <label>Showing day<input id="date" type="date"></label>
+          </div>
+          <div class="row wrap">
+            <button class="btn primary" type="button" id="printBtn">Print itinerary</button>
+            <button class="btn" type="button" id="icsBtn">Download .ics</button>
+            <button class="btn" type="button" id="shareBtn">Share text</button>
+          </div>
+          <h2>Preview</h2>
+          <pre class="card preview" id="sharePreview"></pre>
+        </section>
+      </div>
+
+      <section class="mappane glass" data-panel="map">
+        <div id="map" role="application" aria-label="Map of showings"></div>
+        <div class="maptools">
+          <span id="mapHint" class="chip">Tap a numbered pin for details</span>
+          <button type="button" class="chip btn-chip" id="fitBtn">Fit all</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>Sample homes and addresses are invented. Map data &copy; OpenStreetMap contributors.</span>
+      <span>Built by Chase Builds. MIT license.</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div class="print-sheet" id="printSheet"></div>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
