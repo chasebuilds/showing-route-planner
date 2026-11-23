@@ -51,7 +51,7 @@ test('share text lists stops in order and the ones left out', () => {
   assert.match(t, /1\. 1:00 PM to 1:30 PM {2}Maple Ridge Dr/);
   assert.match(t, /12 min drive from Office/);
   assert.match(t, /Not scheduled:\n- Birch Ct/);
-  assert.ok(!t.includes('—'));
+  assert.ok(!t.includes(String.fromCharCode(0x2014)));
 });
 
 test('time helpers', () => {
