@@ -139,21 +139,31 @@ function solveExact(p, seedRoute) {
 
 /* ---------- heuristic: cheapest insertion, local search, ruin and recreate ---------- */
 
-function insertAll(p, base, order) {
+function insertAll(p, base, order, rng = null) {
   let route = base.slice();
   for (const k of order) {
     let bestR = null;
     let bestC = Infinity;
+    let secondR = null;
+    let secondC = Infinity;
     for (let pos = 0; pos <= route.length; pos++) {
       const r = route.slice();
       r.splice(pos, 0, k);
       const c = costOf(p, r);
       if (c < bestC) {
+        secondC = bestC;
+        secondR = bestR;
         bestC = c;
         bestR = r;
+      } else if (c < secondC) {
+        secondC = c;
+        secondR = r;
       }
     }
-    if (bestR) route = bestR;
+    // Recreate steps take the runner-up spot now and then, which gets the search out of a rut.
+    // Only when both spots serve the stop, so a stop is never dropped on purpose.
+    if (rng && secondR && secondC < Infinity && rng() < 0.2) route = secondR;
+    else if (bestR) route = bestR;
   }
   return route;
 }
@@ -227,7 +237,7 @@ function localSearch(p, start) {
   return { route, cost: cur };
 }
 
-function solveHeuristic(p, { seed = 1, rounds = 60 } = {}) {
+function solveHeuristic(p, { seed = 1, rounds = 200 } = {}) {
   const n = p.n;
   const idx = [...Array(n).keys()];
   const S = p.stops;
@@ -246,15 +256,17 @@ function solveHeuristic(p, { seed = 1, rounds = 60 } = {}) {
   let cur = best;
   for (let round = 0; round < rounds && n > 1; round++) {
     const removeCount = 1 + Math.floor(rng() * Math.max(1, Math.min(4, Math.ceil(n / 4))));
-    const keep = cur.route.slice();
+    // Every few rounds, rebuild from scratch in a random order so the search can jump to a different overall shape.
+    const keep = round % 4 === 3 ? [] : cur.route.slice();
     for (let i = 0; i < removeCount && keep.length; i++) keep.splice(Math.floor(rng() * keep.length), 1);
     const pool = idx.filter((k) => !keep.includes(k));
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    const cand = localSearch(p, insertAll(p, keep, pool));
-    if (cand.cost <= cur.cost) cur = cand;
+    const cand = localSearch(p, insertAll(p, keep, pool, rng));
+    // Accept a slightly worse plan early on (a few minutes of driving, never a lost stop), tightening to strict as rounds run out.
+    if (cand.cost <= cur.cost + 6 * (1 - round / rounds)) cur = cand;
     if (cur.cost < best.cost) best = cur;
   }
   return best;
@@ -340,7 +352,7 @@ export function explainDropped(p, route, u) {
 
 export function solve(input, opts = {}) {
   const p = input.matrix && input.n !== undefined ? input : makeProblem(input);
-  const heur = solveHeuristic(p, { seed: opts.seed ?? 1, rounds: opts.rounds ?? 60 });
+  const heur = solveHeuristic(p, { seed: opts.seed ?? 1, rounds: opts.rounds ?? (p.n <= 12 ? 200 : Math.max(60, Math.round(2400 / p.n))) });
   let route = heur.route;
   let mode = 'heuristic';
   let nodes = 0;

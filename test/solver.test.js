@@ -139,3 +139,15 @@ test('no stops is a valid empty plan', () => {
   assert.equal(r.served, 0);
   assert.equal(r.drive, 0);
 });
+
+test('heuristic alone reaches the exact optimum on the instances it used to miss', () => {
+  const kinds = ['planted', 'random', 'wide', 'open'];
+  const sizes = [6, 7, 8, 9, 10];
+  // Indexes (and the benchmark seed scheme) of the nine small instances the first version of the heuristic got wrong.
+  for (const i of [2, 14, 34, 47, 78, 83, 94, 98, 109]) {
+    const { problem } = generateInstance({ seed: 1000 + i, n: sizes[i % 5], kind: kinds[i % 4] });
+    const exact = solve(problem);
+    const heur = solve(problem, { forceHeuristic: true });
+    assert.equal(heur.cost, exact.cost, `instance ${i}`);
+  }
+});

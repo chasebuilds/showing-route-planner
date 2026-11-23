@@ -1,4 +1,4 @@
-const VERSION = 'srp-v1';
+const VERSION = 'srp-v2';
 const SHELL = [
   './',
   'index.html',
@@ -11,6 +11,8 @@ const SHELL = [
   'src/ics.js',
   'src/itinerary.js',
   'src/sample.js',
+  'src/csv.js',
+  'src/geocode.js',
   'vendor/leaflet/leaflet.js',
   'vendor/leaflet/leaflet.css',
   'vendor/leaflet/images/marker-icon.png',

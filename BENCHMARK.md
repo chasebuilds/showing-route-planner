@@ -1,6 +1,6 @@
 # Benchmark
 
-Written by `npm run bench` (`scripts/benchmark.mjs`) from a real run on 240 generated instances. Do not edit by hand.
+Written by `npm run bench` (`scripts/benchmark.mjs`) from a real run on 540 generated instances. Do not edit by hand.
 Node v24.14.1, win32. Run on 2026-11-23. Times are for that machine and will differ on yours.
 
 ## How the instances are made
@@ -22,22 +22,25 @@ Here the heuristic (greedy insertion, or-opt, 2-opt, swap, ruin and recreate) is
 | Measure | Result |
 | --- | --- |
 | Instances | 120 (30 planted, 30 random, 30 wide, 30 open) |
-| Heuristic found the exact optimum | 111 of 120 (92.5%) |
-| Drive-time gap, mean (instances serving the same number of stops: 118) | 0.3% |
-| Drive-time gap, worst | 12.2% |
-| Heuristic served fewer stops or missed more must-sees than optimal | 2 |
-| Exact solver time, mean / max | 3.9 ms / 48 ms |
-| Heuristic time, mean / max | 2.1 ms / 5 ms |
+| Heuristic found the exact optimum | 120 of 120 (100.0%) |
+| Drive-time gap, mean (instances serving the same number of stops: 120) | 0.0% |
+| Drive-time gap, worst | 0.0% |
+| Heuristic served fewer stops or missed more must-sees than optimal | 0 |
+| Exact solver time, mean / max | 10.3 ms / 69 ms |
+| Heuristic time, mean / max | 8.4 ms / 24 ms |
 
 By size:
 
 | Stops | Instances | Heuristic optimal | Mean exact time |
 | --- | --- | --- | --- |
-| 6 | 24 | 24 of 24 | 1.1 ms |
-| 7 | 24 | 24 of 24 | 1.6 ms |
-| 8 | 24 | 22 of 24 | 2.6 ms |
-| 9 | 24 | 21 of 24 | 3.9 ms |
-| 10 | 24 | 20 of 24 | 10.2 ms |
+| 6 | 24 | 24 of 24 | 3.9 ms |
+| 7 | 24 | 24 of 24 | 6.0 ms |
+| 8 | 24 | 24 of 24 | 9.2 ms |
+| 9 | 24 | 24 of 24 | 11.7 ms |
+| 10 | 24 | 24 of 24 | 20.7 ms |
+
+Held-out check: the heuristic was tuned against the 120 instances above, so 300 more small instances (same generator, seeds never used while tuning) were run as well.
+The heuristic found the exact optimum in 300 of 300 (100.0%); worst drive-time gap 0.0%.
 
 ## Larger instances: solver against nearest neighbor
 
@@ -49,22 +52,22 @@ There is no exact optimum at this size, so this compares to the baseline only.
 | --- | --- |
 | Instances | 120 (30 planted, 30 random, 30 wide, 30 open) |
 | Solver plan as good or better than nearest neighbor | 120 of 120 |
-| Solver served more stops | 85 |
+| Solver served more stops | 87 |
 | Solver served fewer stops (it trades them to keep must-sees) | 1 |
 | Mean stops served, solver / nearest neighbor | 14.8 / 9.5 of 20.4 |
-| Mean drive-time saving where both serve the same count (same stops served and same must-sees missed, 30 instances) | 10.3% |
+| Mean drive-time saving where both serve the same count (same stops served and same must-sees missed, 30 instances) | 10.6% |
 | Median drive-time saving, same instances | 10.2% |
-| Solver time, mean / max | 20 ms / 112 ms |
+| Solver time, mean / max | 65 ms / 434 ms |
 
 By size:
 
 | Stops | Instances | Mean served (solver / NN) | Mean drive minutes (solver / NN, same outcome) |
 | --- | --- | --- | --- |
 | 12 | 24 | 10.0 / 6.2 | 150 / 165 |
-| 15 | 24 | 12.0 / 7.8 | 181 / 199 |
+| 15 | 24 | 12.0 / 7.8 | 180 / 199 |
 | 20 | 24 | 14.7 / 9.7 | 203 / 234 |
-| 25 | 24 | 17.3 / 11.0 | 232 / 258 |
-| 30 | 24 | 20.3 / 13.0 | 252 / 285 |
+| 25 | 24 | 17.3 / 11.0 | 230 / 258 |
+| 30 | 24 | 20.4 / 13.0 | 252 / 285 |
 
 ## Limits of this benchmark
 

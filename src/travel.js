@@ -28,6 +28,19 @@ export function cleanOsrmBase(url) {
   return `${u.origin}${u.pathname.replace(/\/+$/, '')}`;
 }
 
+/** Road-following line through the stops in order, from the same OSRM server. Returns [[lat, lng], ...]. */
+export async function osrmRoute(points, baseUrl, fetchImpl = fetch) {
+  if (points.length < 2) return [];
+  const base = cleanOsrmBase(baseUrl);
+  const coords = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+  const res = await fetchImpl(`${base}/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+  if (!res.ok) throw new Error(`The OSRM server answered ${res.status}.`);
+  const data = await res.json();
+  const line = data.routes?.[0]?.geometry?.coordinates;
+  if (data.code !== 'Ok' || !Array.isArray(line)) throw new Error('The OSRM server returned no route.');
+  return line.map(([lng, lat]) => [lat, lng]);
+}
+
 /** Real drive times from an OSRM server the user supplies (its /table service). No default server on purpose. */
 export async function osrmMatrix(points, baseUrl, fetchImpl = fetch) {
   const base = cleanOsrmBase(baseUrl);

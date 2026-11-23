@@ -53,6 +53,7 @@
             <label>Address label<input id="fLabel" autocomplete="off" placeholder="418 Maple Ridge Dr" maxlength="80"></label>
             <div class="row">
               <label class="grow">Coordinates (lat, lng)<input id="fCoords" inputmode="decimal" autocomplete="off" placeholder="35.8101, -78.6120"></label>
+              <button type="button" class="btn ghost" id="lookupBtn" hidden>Look up</button>
               <button type="button" class="btn ghost" id="pickPin">Drop a pin</button>
             </div>
             <div class="row">
@@ -77,6 +78,17 @@
             <button class="btn ghost" type="button" id="clearAll">Clear all</button>
           </div>
 
+          <details class="card settings" id="csvBox">
+            <summary>Import or export a CSV</summary>
+            <p class="hint">Columns: <code>label</code> (or address), <code>lat</code>, <code>lng</code>, <code>open</code>, <code>close</code> (or one <code>window</code> like 1:00-2:00 PM), <code>minutes</code> (default 30), <code>must</code> (yes or no). Order and capitalization do not matter. Rows that cannot be read are skipped and listed.</p>
+            <div class="row wrap">
+              <label class="btn ghost filebtn">Choose CSV file<input id="csvFile" type="file" accept=".csv,.txt,text/csv"></label>
+              <button class="btn ghost" type="button" id="csvExport">Export CSV</button>
+              <button class="btn ghost" type="button" id="csvTemplate">Template</button>
+            </div>
+            <div class="csvstatus" id="csvStatus" aria-live="polite"></div>
+          </details>
+
           <details class="card settings" id="settings">
             <summary>Travel time settings</summary>
             <p class="hint">Default is an offline estimate: straight-line miles x road factor, driven at a flat speed. Change either number to match your market.</p>
@@ -87,6 +99,9 @@
             <label class="check"><input id="sOsrm" type="checkbox"> Use my own OSRM server for real drive times</label>
             <label>OSRM server address<input id="sOsrmUrl" type="url" autocomplete="off" placeholder="https://your-osrm-server.example"></label>
             <p class="hint">Off by default. Stop coordinates are sent to the address you enter, nothing else is contacted. The server needs the <code>/table</code> service and must allow requests from this page.</p>
+            <label class="check"><input id="sGeo" type="checkbox"> Look up addresses with my own geocoder</label>
+            <label>Geocoder address<input id="sGeoUrl" type="url" autocomplete="off" placeholder="https://your-geocoder.example/search"></label>
+            <p class="hint">Off by default. Adds a Look up button to the form and fills in missing coordinates on CSV import, about one request per second. The address text you type is sent to that server. Use a service you are allowed to use this way and follow its usage policy. The address can include <code>{q}</code> where the text goes. Answers in Nominatim or GeoJSON format work.</p>
           </details>
         </section>
 
@@ -116,6 +131,7 @@
         <div id="map" role="application" aria-label="Map of showings"></div>
         <div class="maptools">
           <span id="mapHint" class="chip">Tap a numbered pin for details</span>
+          <span id="routeNote" class="chip legend"></span>
           <button type="button" class="chip btn-chip" id="fitBtn">Fit all</button>
         </div>
       </section>

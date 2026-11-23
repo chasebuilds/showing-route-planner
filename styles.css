@@ -91,7 +91,7 @@ button.chip { cursor: pointer; color: var(--ink); }
 .panel.on, .mappane.on { display: block; }
 .mappane { padding: 8px; position: relative; }
 .mappane.on { display: block; }
-#map { height: min(62vh, 520px); border-radius: 18px; overflow: hidden; background: var(--wall-2); }
+#map { height: min(54vh, 440px); border-radius: 18px; overflow: hidden; background: var(--wall-2); }
 .maptools { position: absolute; left: 18px; right: 18px; bottom: 18px; display: flex; justify-content: space-between; gap: 8px; z-index: 500; pointer-events: none; }
 .maptools .chip { pointer-events: auto; background: var(--solidcard, rgba(255, 252, 248, .9)); color: #2a2019; }
 @media (prefers-color-scheme: dark) { .maptools .chip { background: rgba(40, 30, 23, .92); color: #f6ece2; } }
@@ -185,6 +185,15 @@ code { font-family: var(--f-num); font-size: 12px; }
 .pin.start span { background: #1f9a72; border-radius: 8px; }
 .pin.off span { background: #8a8a8a; }
 .leaflet-container { font-family: var(--f-ui); }
+
+.filebtn { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.filebtn:focus-within { outline: 2px solid var(--me); outline-offset: 2px; }
+.csvstatus { font-size: 13px; margin-top: 8px; }
+.csvstatus p { margin: 0; }
+.csvstatus ul { margin: 6px 0 0; padding-left: 18px; color: var(--ink-2); }
+.maptools { flex-wrap: wrap; align-items: flex-end; }
+.maptools .legend { order: 3; flex-basis: 100%; text-align: center; }
 
 .print-sheet { display: none; }
 

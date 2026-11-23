@@ -48,7 +48,20 @@ function runLarge() {
   return rows;
 }
 
+// Held-out check: the heuristic was tuned on the seeds above, so these use seeds it never saw.
+function runHeldOut() {
+  const rows = [];
+  for (let i = 0; i < 300; i++) {
+    const { problem } = generateInstance({ seed: 90000 + i, n: SMALL.sizes[i % SMALL.sizes.length], kind: KINDS[i % KINDS.length] });
+    rows.push({ exact: solve(problem), heur: solve(problem, { forceHeuristic: true }) });
+  }
+  return rows;
+}
+
 const small = runSmall();
+const held = runHeldOut();
+const heldOptimal = held.filter((r) => r.heur.cost === r.exact.cost).length;
+const heldGaps = held.filter((r) => r.heur.cost !== r.exact.cost).map((r) => (r.heur.drive - r.exact.drive) / r.exact.drive);
 const large = runLarge();
 
 // small: heuristic against the exact optimum
@@ -72,7 +85,7 @@ const bySize = (rows, f) =>
 
 const md = `# Benchmark
 
-Written by \`npm run bench\` (\`scripts/benchmark.mjs\`) from a real run on ${small.length + large.length} generated instances. Do not edit by hand.
+Written by \`npm run bench\` (\`scripts/benchmark.mjs\`) from a real run on ${small.length + held.length + large.length} generated instances. Do not edit by hand.
 Node ${process.version}, ${process.platform}. Run on ${new Date().toISOString().slice(0, 10)}. Times are for that machine and will differ on yours.
 
 ## How the instances are made
@@ -106,6 +119,9 @@ By size:
 | Stops | Instances | Heuristic optimal | Mean exact time |
 | --- | --- | --- | --- |
 ${bySize(small, (n, rs) => `| ${n} | ${rs.length} | ${rs.filter((r) => r.heur.cost === r.exact.cost).length} of ${rs.length} | ${mean(rs.map((r) => r.exactMs)).toFixed(1)} ms |`).join('\n')}
+
+Held-out check: the heuristic was tuned against the ${small.length} instances above, so ${held.length} more small instances (same generator, seeds never used while tuning) were run as well.
+The heuristic found the exact optimum in ${heldOptimal} of ${held.length} (${pct(heldOptimal / held.length)}); worst drive-time gap ${pct(max(heldGaps))}.
 
 ## Larger instances: solver against nearest neighbor
 

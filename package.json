@@ -1,6 +1,6 @@
 {
   "name": "showing-route-planner",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Order a day of home showings to fit every listing-agent window with the least driving. Installable PWA, offline after first load.",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "serve": "node scripts/serve.mjs",
     "bench": "node scripts/benchmark.mjs",
     "screenshot": "node scripts/screenshot.mjs",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

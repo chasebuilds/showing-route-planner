@@ -1,5 +1,7 @@
 import { makeProblem, solve } from './solver.js';
-import { estimateMatrix, osrmMatrix, DEFAULT_TRAVEL } from './travel.js';
+import { estimateMatrix, osrmMatrix, osrmRoute, DEFAULT_TRAVEL } from './travel.js';
+import { importStops, exportStops, TEMPLATE_CSV } from './csv.js';
+import { geocode, geocodeMany } from './geocode.js';
 import { fmtTime, fmtDuration, parseClock, toClock, parseLatLng, escapeHtml } from './format.js';
 import { buildIcs } from './ics.js';
 import { itineraryRows, rowDescription, shareText } from './itinerary.js';
@@ -15,7 +17,7 @@ function nextSaturday() {
 }
 
 function freshState() {
-  return { ...sampleDay(), date: nextSaturday(), buyer: '', settings: { ...DEFAULT_TRAVEL, useOsrm: false, osrmUrl: '' } };
+  return { ...sampleDay(), date: nextSaturday(), buyer: '', settings: { ...DEFAULT_TRAVEL, useOsrm: false, osrmUrl: '', useGeocode: false, geocodeUrl: '' } };
 }
 
 function load() {
@@ -38,6 +40,7 @@ let planNote = '';
 let editingId = null;
 let mapMode = null; // 'start' | 'pin' | null
 let planSeq = 0;
+let roadLine = null;
 let lastFitKey = '';
 let activeTab = 'stops';
 
@@ -68,7 +71,13 @@ function showTab(tab) {
   activeTab = tab === 'map' && isDesktop() ? 'stops' : tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === activeTab));
   document.querySelectorAll('[data-panel]').forEach((p) => p.classList.toggle('on', p.dataset.panel === activeTab));
-  if (map) setTimeout(() => map.invalidateSize(), 60);
+  if (map && activeTab === 'map') {
+    // The map is measured while hidden on a phone, so refit once it is on screen.
+    setTimeout(() => {
+      map.invalidateSize();
+      fit();
+    }, 60);
+  } else if (map) setTimeout(() => map.invalidateSize(), 60);
 }
 
 /* ---------- map ---------- */
@@ -132,7 +141,9 @@ function drawMap() {
       .bindPopup(`<b>${i + 1}. ${escapeHtml(s.label)}</b><br>${fmtTime(leg.start)} to ${fmtTime(leg.end)}<br>Window ${fmtTime(s.open)} to ${fmtTime(s.close)}`)
       .addTo(layer);
   });
-  if (latlngs.length > 1) L.polyline(latlngs, { color: '#e2583a', weight: 4, opacity: 0.8, dashArray: '2 8', lineCap: 'round' }).addTo(layer);
+  if (roadLine?.length) L.polyline(roadLine, { color: '#e2583a', weight: 5, opacity: 0.85 }).addTo(layer);
+  else if (latlngs.length > 1) L.polyline(latlngs, { color: '#e2583a', weight: 4, opacity: 0.8, dashArray: '2 8', lineCap: 'round' }).addTo(layer);
+  $('routeNote').textContent = roadLine?.length ? 'Road route from your OSRM server' : 'Straight lines between stops, not roads';
   const served = new Set(plan?.order ?? []);
   for (const s of state.stops) {
     if (served.has(s.id)) continue;
@@ -179,7 +190,22 @@ async function recompute() {
     matrix: tm.minutes,
   });
   plan = solve(problem);
+  roadLine = null;
   render();
+  if (cfg.useOsrm && cfg.osrmUrl && plan.legs.length) {
+    const byId = new Map(state.stops.map((x) => [x.id, x]));
+    try {
+      const line = await osrmRoute([state.start, ...plan.legs.map((l) => byId.get(l.id))], cfg.osrmUrl);
+      if (seq !== planSeq) return;
+      roadLine = line;
+      drawMap();
+    } catch (e) {
+      if (seq === planSeq) {
+        planNote = `${planNote} Road lines unavailable (${e.message})`.trim();
+        renderSummary();
+      }
+    }
+  }
 }
 
 let debounce;
@@ -331,6 +357,17 @@ function syncFormFromState() {
   $('sMph').value = state.settings.mph;
   $('sOsrm').checked = state.settings.useOsrm;
   $('sOsrmUrl').value = state.settings.osrmUrl;
+  $('sGeo').checked = state.settings.useGeocode;
+  $('sGeoUrl').value = state.settings.geocodeUrl;
+  updateLookupButton();
+}
+
+function geocodingOn() {
+  return state.settings.useGeocode && !!state.settings.geocodeUrl;
+}
+
+function updateLookupButton() {
+  $('lookupBtn').hidden = !geocodingOn();
 }
 
 function resetStopForm() {
@@ -406,7 +443,10 @@ function readSettings() {
     mph: m >= 5 && m <= 80 ? m : DEFAULT_TRAVEL.mph,
     useOsrm: $('sOsrm').checked,
     osrmUrl: $('sOsrmUrl').value.trim(),
+    useGeocode: $('sGeo').checked,
+    geocodeUrl: $('sGeoUrl').value.trim(),
   };
+  updateLookupButton();
   changed();
 }
 
@@ -450,6 +490,52 @@ async function shareNow() {
   }
 }
 
+/* ---------- csv and address lookup ---------- */
+
+function showCsvStatus(msg, skipped = []) {
+  const items = skipped.map((k) => `<li>Row ${k.row}${k.label ? ` (${escapeHtml(k.label)})` : ''}: ${escapeHtml(k.reason)}</li>`).join('');
+  $('csvStatus').innerHTML = `<p>${escapeHtml(msg)}</p>${items ? `<ul>${items}</ul>` : ''}`;
+}
+
+async function importCsvText(text) {
+  const r = importStops(text, () => newId());
+  const added = [...r.stops];
+  const skipped = [...r.skipped];
+  if (r.pending.length && geocodingOn()) {
+    showCsvStatus(`Looking up ${r.pending.length} addresses, about one per second...`);
+    const found = await geocodeMany(
+      state.settings.geocodeUrl,
+      r.pending.map((p) => p.label),
+      { onProgress: (i, n) => showCsvStatus(`Looking up addresses: ${i} of ${n}`) },
+    );
+    r.pending.forEach((p, i) => {
+      if (found[i].ok) added.push({ ...p, lat: found[i].lat, lng: found[i].lng });
+      else skipped.push({ row: p.row, label: p.label, reason: found[i].error });
+    });
+  } else {
+    for (const p of r.pending) skipped.push({ row: p.row, label: p.label, reason: 'No coordinates. Add lat and lng columns, or turn on address lookup under Travel time settings.' });
+  }
+  if (added.length) {
+    state.stops = [...state.stops, ...added.map((a) => ({ ...a, row: undefined }))];
+    changed();
+  }
+  showCsvStatus(`Imported ${added.length} of ${r.total} rows.${skipped.length ? ` Skipped ${skipped.length}:` : ''}`, skipped);
+}
+
+async function lookupAddress() {
+  const btn = $('lookupBtn');
+  btn.disabled = true;
+  try {
+    const hit = await geocode(state.settings.geocodeUrl, $('fLabel').value);
+    $('fCoords').value = coordText(hit);
+    toast(hit.name ? `Found: ${hit.name.slice(0, 60)}` : 'Coordinates filled in');
+  } catch (e) {
+    $('formErr').textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /* ---------- wiring ---------- */
 
 function wire() {
@@ -474,7 +560,7 @@ function wire() {
     }
   });
   for (const id of ['startLabel', 'startCoords', 'startTime']) $(id).addEventListener('change', readStart);
-  for (const id of ['sFactor', 'sMph', 'sOsrm', 'sOsrmUrl']) $(id).addEventListener('change', readSettings);
+  for (const id of ['sFactor', 'sMph', 'sOsrm', 'sOsrmUrl', 'sGeo', 'sGeoUrl']) $(id).addEventListener('change', readSettings);
   $('buyer').addEventListener('input', () => {
     state.buyer = $('buyer').value;
     save();
@@ -504,6 +590,19 @@ function wire() {
     renderShare();
     window.print();
   });
+  $('csvFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 1_000_000) return showCsvStatus('That file is over 1 MB. Split it up.');
+    await importCsvText(await file.text());
+  });
+  $('csvExport').addEventListener('click', () => {
+    if (!state.stops.length) return toast('No showings to export');
+    download('showings.csv', exportStops(state.stops), 'text/csv');
+  });
+  $('csvTemplate').addEventListener('click', () => download('showings-template.csv', TEMPLATE_CSV, 'text/csv'));
+  $('lookupBtn').addEventListener('click', lookupAddress);
   $('icsBtn').addEventListener('click', downloadIcs);
   $('shareBtn').addEventListener('click', shareNow);
 
